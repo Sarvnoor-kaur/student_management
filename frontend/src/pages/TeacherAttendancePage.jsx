@@ -22,7 +22,7 @@ const TeacherAttendancePage = ({ user }) => {
   const fetchTeacherSubjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/teacher/profile');
+      const response = await api.get('/teachers/profile');
       if (response.data.success) {
         const subjectsAssigned = response.data.teacher?.subjectsAssigned || [];
         setSubjects(subjectsAssigned);
@@ -40,7 +40,7 @@ const TeacherAttendancePage = ({ user }) => {
     
     try {
       setLoading(true);
-      const response = await api.get('/teacher/attendance-by-subject', {
+      const response = await api.get('/teachers/attendance-by-subject', {
         params: { subject: subjectId, batch: selectedDate.format('YYYY-MM') }
       });
       
@@ -80,7 +80,7 @@ const TeacherAttendancePage = ({ user }) => {
 
     try {
       setSubmitting(true);
-      await api.post('/teacher/mark-attendance', {
+      await api.post('/teachers/mark-attendance', {
         students: attendanceRecords,
         date: selectedDate.format('YYYY-MM-DD'),
         subject: selectedSubject,

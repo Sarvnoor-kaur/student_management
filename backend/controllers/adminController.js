@@ -145,7 +145,18 @@ const rejectAdmission = async (req, res) => {
 
 const createCourse = async (req, res) => {
   try {
-    const { courseName, courseCode, department, totalSemesters } = req.body;
+    const { 
+      courseName, 
+      courseCode, 
+      department, 
+      totalSemesters,
+      description,
+      duration,
+      totalCredits,
+      admissionCapacity,
+      courseFee,
+      eligibility
+    } = req.body;
 
     if (!courseName || !courseCode || !department) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -156,6 +167,12 @@ const createCourse = async (req, res) => {
       courseCode,
       department,
       totalSemesters,
+      description,
+      duration,
+      totalCredits,
+      admissionCapacity,
+      courseFee,
+      eligibility
     });
 
     await course.save();
@@ -446,6 +463,108 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+const assignTeacherToCourse = async (req, res) => {
+  try {
+    const { teacherId, courseId } = req.body;
+
+    if (!teacherId || !courseId) {
+      return res.status(400).json({ success: false, message: 'Teacher ID and Course ID are required' });
+    }
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher not found' });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    const courseIdStr = courseId.toString();
+    const alreadyAssigned = teacher.coursesAssigned.some(id => id.toString() === courseIdStr);
+    
+    if (!alreadyAssigned) {
+      teacher.coursesAssigned.push(courseId);
+      await teacher.save();
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Teacher assigned to course successfully',
+      teacher: await Teacher.findById(teacherId).populate('coursesAssigned')
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const removeTeacherFromCourse = async (req, res) => {
+  try {
+    const { teacherId, courseId } = req.body;
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher not found' });
+    }
+
+    const courseIdStr = courseId.toString();
+    teacher.coursesAssigned = teacher.coursesAssigned.filter(id => id.toString() !== courseIdStr);
+    await teacher.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Teacher removed from course',
+      teacher: await Teacher.findById(teacherId).populate('coursesAssigned')
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getTeachersByCourseid = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const teachers = await Teacher.find({ coursesAssigned: courseId }).populate('coursesAssigned').select('-password');
+
+    res.status(200).json({ 
+      success: true, 
+      teachers 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getCourseTeachersAssignments = async (req, res) => {
+  try {
+    const courses = await Course.find().populate({
+      path: 'subjects'
+    });
+
+    const assignments = await Promise.all(
+      courses.map(async (course) => {
+        const teachers = await Teacher.find({ coursesAssigned: course._id }).select('_id email personalDetails');
+        return {
+          courseId: course._id,
+          courseName: course.courseName,
+          courseCode: course.courseCode,
+          teachers,
+          teacherCount: teachers.length
+        };
+      })
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      assignments 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   createAdmin,
   getAdmissions,
@@ -461,4 +580,8 @@ module.exports = {
   updateTeacher,
   deleteTeacher,
   getDashboardStats,
+  assignTeacherToCourse,
+  removeTeacherFromCourse,
+  getTeachersByCourseid,
+  getCourseTeachersAssignments,
 };

@@ -53,6 +53,18 @@ const teacherSchema = new mongoose.Schema(
         ref: 'Subject',
       },
     ],
+    coursesAssigned: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Course',
+      },
+    ],
+    studentsAssigned: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student',
+      },
+    ],
     timetable: [
       {
         day: String,

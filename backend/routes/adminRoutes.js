@@ -23,4 +23,9 @@ router.delete('/teacher/:id', authMiddleware, roleMiddleware(['admin', 'superadm
 
 router.get('/dashboard-stats', authMiddleware, roleMiddleware(['admin', 'superadmin']), adminController.getDashboardStats);
 
+router.post('/teacher/assign-course', authMiddleware, roleMiddleware(['admin', 'superadmin']), adminController.assignTeacherToCourse);
+router.post('/teacher/remove-course', authMiddleware, roleMiddleware(['admin', 'superadmin']), adminController.removeTeacherFromCourse);
+router.get('/teachers/by-course/:courseId', authMiddleware, roleMiddleware(['admin', 'superadmin']), adminController.getTeachersByCourseid);
+router.get('/course-teacher-assignments', authMiddleware, roleMiddleware(['admin', 'superadmin']), adminController.getCourseTeachersAssignments);
+
 module.exports = router;

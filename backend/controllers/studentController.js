@@ -2,10 +2,15 @@ const Student = require('../models/Student');
 const Attendance = require('../models/Attendance');
 const Marksheet = require('../models/Marksheet');
 const Fee = require('../models/Fee');
+const Teacher = require('../models/Teacher');
+const Course = require('../models/Course');
 
 const getStudentProfile = async (req, res) => {
   try {
-    const student = await Student.findById(req.user.id).select('-password');
+    const student = await Student.findById(req.user.id)
+      .select('-password')
+      .populate('academicDetails.course')
+      .populate('preferredTeacher');
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
@@ -285,6 +290,89 @@ const deleteStudent = async (req, res) => {
   }
 };
 
+const getTeachersForCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    const teachers = await Teacher.find({ coursesAssigned: courseId })
+      .populate('subjectsAssigned')
+      .select('-password -studentsAssigned -timetable -experience -salary -documents');
+
+    res.status(200).json({ 
+      success: true, 
+      teachers,
+      courseId,
+      courseName: course.courseName
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const selectPreferredTeacher = async (req, res) => {
+  try {
+    const { teacherId } = req.body;
+    const studentId = req.user.id;
+
+    if (!teacherId) {
+      return res.status(400).json({ success: false, message: 'Teacher ID is required' });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher not found' });
+    }
+
+    student.preferredTeacher = teacherId;
+    await student.save();
+
+    if (!teacher.studentsAssigned.includes(studentId)) {
+      teacher.studentsAssigned.push(studentId);
+      await teacher.save();
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Teacher selected successfully',
+      student: await Student.findById(studentId).populate('preferredTeacher')
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getAssignedTimetable = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const StudentTimetable = require('../models/StudentTimetable');
+
+    const timetable = await StudentTimetable.findOne({ student: studentId })
+      .populate('teacher')
+      .populate('course');
+
+    if (!timetable) {
+      return res.status(404).json({ success: false, message: 'No timetable assigned yet' });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      timetable 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getStudentProfile,
   updateStudentProfile,
@@ -297,4 +385,7 @@ module.exports = {
   getStudentById,
   updateStudent,
   deleteStudent,
+  getTeachersForCourse,
+  selectPreferredTeacher,
+  getAssignedTimetable,
 };

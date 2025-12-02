@@ -1,38 +1,111 @@
 const Teacher = require('../models/Teacher');
+const Course = require('../models/Course');
 const Attendance = require('../models/Attendance');
 const Marksheet = require('../models/Marksheet');
 const Timetable = require('../models/Timetable');
 const LMS = require('../models/LMS');
+const Student = require('../models/Student');
+const StudentTimetable = require('../models/StudentTimetable');
 
 const getTeacherProfile = async (req, res) => {
   try {
-    const teacher = await Teacher.findById(req.user.id).populate('subjectsAssigned').select('-password');
+    console.log('=== getTeacherProfile Called ===');
+    console.log('Authorization header:', req.headers.authorization?.substring(0, 20) + '...');
+    console.log('Teacher ID from auth:', req.user?.id);
+    
+    if (!req.user || !req.user.id) {
+      console.log('ERROR: No user ID in request');
+      return res.status(401).json({ success: false, message: 'Unauthorized - No user ID' });
+    }
+
+    console.log('Finding teacher with ID:', req.user.id);
+    const teacher = await Teacher.findById(req.user.id)
+      .populate('subjectsAssigned')
+      .populate('coursesAssigned')
+      .select('-password');
 
     if (!teacher) {
+      console.log('ERROR: Teacher not found in database for ID:', req.user.id);
       return res.status(404).json({ success: false, message: 'Teacher not found' });
     }
 
+    console.log('SUCCESS: Returning teacher profile');
     res.status(200).json({ success: true, teacher });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('ERROR in getTeacherProfile:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      error: error.message
+    });
   }
 };
 
 const updateTeacherProfile = async (req, res) => {
   try {
-    const { personalDetails, department, specialization } = req.body;
+    console.log('=== updateTeacherProfile Called ===');
+    console.log('Teacher ID:', req.user?.id);
+    console.log('Body keys:', Object.keys(req.body));
+    
+    let { personalDetails, department, specialization } = req.body;
+    
+    if (typeof personalDetails === 'string') {
+      personalDetails = JSON.parse(personalDetails);
+    }
+    
+    if (typeof specialization === 'string') {
+      specialization = JSON.parse(specialization);
+    }
+
+    console.log('Parsed personalDetails:', personalDetails);
+    console.log('Parsed specialization:', specialization);
+
+    const updateData = { department, specialization };
+
+    if (personalDetails) {
+      updateData.personalDetails = personalDetails;
+    }
+
+    if (req.file) {
+      console.log('File uploaded:', req.file.filename);
+      updateData.personalDetails = {
+        ...updateData.personalDetails,
+        photo: `/uploads/${req.file.filename}`
+      };
+    }
+
+    console.log('Update data:', updateData);
 
     const teacher = await Teacher.findByIdAndUpdate(
       req.user.id,
-      { personalDetails, department, specialization },
+      updateData,
       { new: true }
     )
       .select('-password')
-      .populate('subjectsAssigned');
+      .populate('subjectsAssigned')
+      .populate('coursesAssigned');
 
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher not found' });
+    }
+
+    console.log('SUCCESS: Profile updated');
     res.status(200).json({ success: true, message: 'Profile updated', teacher });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('ERROR in updateTeacherProfile:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      error: error.message
+    });
   }
 };
 
@@ -258,6 +331,166 @@ const deleteTeacher = async (req, res) => {
   }
 };
 
+const getAssignedStudents = async (req, res) => {
+  try {
+    console.log('=== getAssignedStudents Called ===');
+    console.log('Teacher ID from auth:', req.user?.id);
+    
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized - No user ID' });
+    }
+
+    const teacherId = req.user.id;
+
+    const teacher = await Teacher.findById(teacherId).populate({
+      path: 'studentsAssigned',
+      select: '-password',
+      populate: {
+        path: 'academicDetails.course',
+        select: 'courseName'
+      }
+    });
+
+    console.log('Teacher found:', teacher ? 'YES' : 'NO');
+    console.log('Students assigned:', teacher?.studentsAssigned?.length || 0);
+
+    if (!teacher) {
+      console.log('ERROR: Teacher not found');
+      return res.status(404).json({ success: false, message: 'Teacher not found' });
+    }
+
+    console.log('SUCCESS: Returning assigned students');
+    res.status(200).json({ 
+      success: true, 
+      students: teacher.studentsAssigned || [],
+      totalStudents: teacher.studentsAssigned ? teacher.studentsAssigned.length : 0
+    });
+  } catch (error) {
+    console.error('ERROR in getAssignedStudents:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      error: error.message
+    });
+  }
+};
+
+const createStudentTimetable = async (req, res) => {
+  try {
+    const { studentId, courseId, schedule, notes } = req.body;
+    const teacherId = req.user.id;
+
+    if (!studentId || !courseId || !schedule || !Array.isArray(schedule) || schedule.length === 0) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    let timetable = await StudentTimetable.findOne({ student: studentId, teacher: teacherId });
+
+    if (timetable) {
+      timetable.schedule = schedule;
+      timetable.notes = notes || timetable.notes;
+      timetable.updatedAt = new Date();
+      await timetable.save();
+    } else {
+      timetable = new StudentTimetable({
+        student: studentId,
+        teacher: teacherId,
+        course: courseId,
+        schedule,
+        notes,
+      });
+      await timetable.save();
+
+      student.assignedTimetable = timetable._id;
+      await student.save();
+    }
+
+    const populatedTimetable = await StudentTimetable.findById(timetable._id)
+      .populate('teacher')
+      .populate('course')
+      .populate('student');
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Timetable created/updated successfully',
+      timetable: populatedTimetable
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getStudentTimetable = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const teacherId = req.user.id;
+
+    const timetable = await StudentTimetable.findOne({ 
+      student: studentId, 
+      teacher: teacherId 
+    })
+      .populate('teacher')
+      .populate('course')
+      .populate('student');
+
+    if (!timetable) {
+      return res.status(404).json({ success: false, message: 'Timetable not found' });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      timetable 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const updateStudentTimetable = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { schedule, notes } = req.body;
+    const teacherId = req.user.id;
+
+    const timetable = await StudentTimetable.findOne({ 
+      student: studentId, 
+      teacher: teacherId 
+    });
+
+    if (!timetable) {
+      return res.status(404).json({ success: false, message: 'Timetable not found' });
+    }
+
+    if (schedule) timetable.schedule = schedule;
+    if (notes) timetable.notes = notes;
+    timetable.updatedAt = new Date();
+
+    await timetable.save();
+
+    const populatedTimetable = await StudentTimetable.findById(timetable._id)
+      .populate('teacher')
+      .populate('course')
+      .populate('student');
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Timetable updated successfully',
+      timetable: populatedTimetable
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getTeacherProfile,
   updateTeacherProfile,
@@ -270,4 +503,8 @@ module.exports = {
   getTeacherById,
   updateTeacher,
   deleteTeacher,
+  getAssignedStudents,
+  createStudentTimetable,
+  getStudentTimetable,
+  updateStudentTimetable,
 };

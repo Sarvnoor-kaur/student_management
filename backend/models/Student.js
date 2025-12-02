@@ -135,6 +135,14 @@ const studentSchema = new mongoose.Schema(
       stopName: String,
       vehicleNumber: String,
     },
+    preferredTeacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Teacher',
+    },
+    assignedTimetable: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StudentTimetable',
+    },
     isActive: {
       type: Boolean,
       default: true,

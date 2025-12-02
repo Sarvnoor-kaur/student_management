@@ -13,6 +13,9 @@ router.get('/attendance', authMiddleware, roleMiddleware(['student']), studentCo
 router.get('/results', authMiddleware, roleMiddleware(['student']), studentController.getStudentResults);
 router.get('/fees', authMiddleware, roleMiddleware(['student']), studentController.getStudentFees);
 router.get('/marksheet/:marksheeetId/download', authMiddleware, roleMiddleware(['student']), studentController.downloadMarksheet);
+router.get('/timetable', authMiddleware, roleMiddleware(['student']), studentController.getAssignedTimetable);
+router.get('/teachers/by-course/:courseId', authMiddleware, roleMiddleware(['student']), studentController.getTeachersForCourse);
+router.post('/select-teacher', authMiddleware, roleMiddleware(['student']), studentController.selectPreferredTeacher);
 
 router.get('/', authMiddleware, roleMiddleware(['admin']), studentController.getAllStudents);
 router.get('/:id', authMiddleware, roleMiddleware(['admin']), studentController.getStudentById);

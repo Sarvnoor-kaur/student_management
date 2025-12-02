@@ -31,6 +31,10 @@ import TimetablePage from './pages/TimetablePage';
 import StudentProfile from './pages/StudentProfile';
 import NoticesPage from './pages/NoticesPage';
 import Sidebar from './components/Sidebar';
+import StudentRegistrationFlow from './pages/StudentRegistrationFlow';
+import StudentDashboardNew from './pages/StudentDashboardNew';
+import TeacherDashboardNew from './pages/TeacherDashboardNew';
+import AdminCoursesManagement from './pages/AdminCoursesManagement';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -84,6 +88,7 @@ function App() {
             <Route path="/" element={<ModernLandingPage />} />
             <Route path="/login" element={<StudentLogin setUser={setUser} />} />
             <Route path="/register" element={<StudentRegister setUser={setUser} />} />
+            <Route path="/register-flow" element={<StudentRegistrationFlow />} />
             <Route path="/teacher/login" element={<TeacherLogin setUser={setUser} />} />
             <Route path="/admin/login" element={<AdminLogin setUser={setUser} />} />
             <Route path="*" element={<Navigate to="/" />} />
@@ -102,7 +107,8 @@ function App() {
             <Routes>
               {user.role === 'student' && (
                 <>
-                  <Route path="/dashboard" element={<StudentDashboard user={user} />} />
+                  <Route path="/dashboard" element={<StudentDashboardNew user={user} />} />
+                  <Route path="/dashboard-old" element={<StudentDashboard user={user} />} />
                   <Route path="/profile" element={<StudentProfile user={user} />} />
                   <Route path="/attendance" element={<AttendancePage user={user} />} />
                   <Route path="/exams" element={<ExamsPage user={user} />} />
@@ -115,7 +121,8 @@ function App() {
               )}
               {user.role === 'teacher' && (
                 <>
-                  <Route path="/dashboard" element={<TeacherDashboard user={user} />} />
+                  <Route path="/dashboard" element={<TeacherDashboardNew user={user} />} />
+                  <Route path="/dashboard-old" element={<TeacherDashboard user={user} />} />
                   <Route path="/attendance" element={<AttendancePage user={user} />} />
                   <Route path="/exams" element={<ExamsPage user={user} />} />
                   <Route path="/lms" element={<LMSPage user={user} />} />
@@ -129,7 +136,8 @@ function App() {
                   <Route path="/admissions" element={<AdmissionManagement user={user} />} />
                   <Route path="/students" element={<AdminStudentsPage user={user} />} />
                   <Route path="/teachers" element={<AdminTeachersPage user={user} />} />
-                  <Route path="/courses" element={<AdminCoursesPage user={user} />} />
+                  <Route path="/courses" element={<AdminCoursesManagement user={user} />} />
+                  <Route path="/courses-old" element={<AdminCoursesPage user={user} />} />
                   <Route path="/subjects" element={<AdminSubjectsPage user={user} />} />
                   <Route path="/attendance" element={<AdminAttendancePanel user={user} />} />
                   <Route path="/fees" element={<AdminFeesManagement user={user} />} />
